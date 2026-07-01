@@ -9,10 +9,18 @@ ENV PYTHONUNBUFFERED=1 \
     TZ=Asia/Shanghai \
     LANG=C.UTF-8
 
-# 安装系统依赖（包括cron用于定时任务）
+# 1. 安装系统依赖：包含 SSH、cron、网络工具等
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-server \
     curl \
     wget \
+    tree \
+    iputils-ping \
+    traceroute \
+	vim \
+    iproute2 \
+    net-tools \	
+	dnsutils \
     ca-certificates \
     tzdata \
     cron \
@@ -20,32 +28,38 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制依赖文件
-COPY requirements.txt .
+# 2. 配置 SSH 服务
+RUN mkdir /var/run/sshd \
+    && echo 'root:password' | chpasswd \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 
-# 安装Python依赖
+# 3. 复制依赖与项目文件
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制项目文件
+# 复制脚本与二进制文件
 COPY cloudflare_speedtest.py .
-
 COPY CloudflareST_proxy_linux_amd64 /app/CloudflareST_proxy_linux_amd64
 COPY CloudflareST_proxy_linux_arm64 /app/CloudflareST_proxy_linux_arm64
+COPY run.sh /app/run.sh
+COPY upload-cfst.py /app/upload-cfst.py
 
-# 赋予可执行文件执行权限
+# 4. 权限处理：确保所有工具可执行
 RUN chmod +x /app/CloudflareST_proxy_linux_amd64 \
     && chmod +x /app/CloudflareST_proxy_linux_arm64
 
-# 创建数据目录（用于保存结果文件）
+# 5. 数据与配置目录
 RUN mkdir -p /app/data /app/config
 
-# 复制启动脚本
+# 6. 复制启动脚本 (确保 docker-entrypoint.sh 包含启动 SSH 的逻辑)
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
+
+# 暴露端口：22 (SSH)
+EXPOSE 22
 
 # 设置入口点
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 # 默认命令（保持容器运行）
-CMD []
-
+CMD ["/usr/sbin/sshd", "-D"]
