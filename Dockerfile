@@ -29,8 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. 配置 SSH 服务
-RUN mkdir /var/run/sshd \
-    && echo 'root:password' | chpasswd \
+RUN echo 'root:password' | chpasswd \
     && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 
 # 3. 复制依赖与项目文件
